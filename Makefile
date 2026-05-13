@@ -35,17 +35,13 @@ release:
 	head=$$(git rev-parse HEAD); \
 	test -n "$$existing" && test "$$existing" = "$$head" || \
 	  (echo "v$(VERSION) must exist and point at HEAD before release"; exit 3)
-	# Build + codesign + archive + publish + commit Cask back to the tap.
+	# Build + codesign/notarize + archive + publish + commit Cask back to the tap.
 	# GITHUB_TOKEN is the user's gh CLI token (repo scope, can create
 	# releases on this repo). HOMEBREW_TAP_GITHUB_TOKEN (op-resolved) is
 	# the fine-grained tap-writer PAT used for the Cask commit.
-	# Codesign happens inside goreleaser's builds.hooks.post.
+	# Codesign + notarization happen inside goreleaser's builds.hooks.post.
 	GITHUB_TOKEN="$$(gh auth token)" \
 	  op run --env-file=.env.template -- goreleaser release --clean
-	# Submit each codesigned darwin binary to notarytool. The published
-	# archive is byte-identical pre/post — Apple records the binary's
-	# CDHash so Gatekeeper online-check passes on first install.
-	scripts/notarize-darwin.sh jwa-harden $(VERSION)
 
 clean:
 	rm -rf bin dist

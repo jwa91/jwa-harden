@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- Enforced notarization inside the GoReleaser build hook so releases cut via
+  raw `goreleaser release --clean` are notarized (not only releases run via
+  `make release`).
+
 ### Added
 
 - `jwa-harden doctor signing` checks macOS release prerequisites:
