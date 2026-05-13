@@ -30,6 +30,7 @@ jwa-harden run -- gh release create v1.2.3
 
 # Check tooling
 jwa-harden doctor
+jwa-harden doctor signing
 
 # Print version
 jwa-harden version

@@ -36,7 +36,7 @@ func run(args []string) error {
 	case "run":
 		return cmdRun(args[1:])
 	case "doctor":
-		return cmdDoctor()
+		return cmdDoctor(args[1:])
 	case "version", "-v", "--version":
 		fmt.Println(version.String())
 		return nil
@@ -55,6 +55,7 @@ func printUsage(w *os.File) {
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  jwa-harden run -- <command> [args...]   Resolve env via op + exec the command")
 	fmt.Fprintln(w, "  jwa-harden doctor                       Check op presence, signin, and template visibility")
+	fmt.Fprintln(w, "  jwa-harden doctor signing               Check macOS signing and notarization prerequisites")
 	fmt.Fprintln(w, "  jwa-harden version                      Print build info")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Behaviour:")
@@ -95,7 +96,19 @@ func cmdRun(args []string) error {
 	return nil
 }
 
-func cmdDoctor() error {
+func cmdDoctor(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "signing":
+			return cmdDoctorSigning()
+		case "-h", "--help", "help":
+			fmt.Println("Usage: jwa-harden doctor [signing]")
+			return nil
+		default:
+			return fmt.Errorf("unknown doctor check: %s", args[0])
+		}
+	}
+
 	ok := true
 	if _, err := exec.LookPath("op"); err != nil {
 		fmt.Println("✗ op not on PATH — install: brew install --cask 1password-cli")
@@ -125,6 +138,61 @@ func cmdDoctor() error {
 	}
 	if !ok {
 		return errors.New("doctor reported errors above")
+	}
+	return nil
+}
+
+func cmdDoctorSigning() error {
+	ok := true
+
+	if _, err := exec.LookPath("codesign"); err != nil {
+		fmt.Println("✗ codesign not on PATH — install Xcode Command Line Tools: xcode-select --install")
+		ok = false
+	} else {
+		fmt.Println("✓ codesign installed")
+	}
+
+	if _, err := exec.LookPath("xcrun"); err != nil {
+		fmt.Println("✗ xcrun not on PATH — install Xcode Command Line Tools: xcode-select --install")
+		ok = false
+	} else if out, err := exec.Command("xcrun", "notarytool", "--help").CombinedOutput(); err != nil {
+		fmt.Println("✗ xcrun notarytool unavailable")
+		if len(out) > 0 {
+			fmt.Printf("  %s", out)
+			if !strings.HasSuffix(string(out), "\n") {
+				fmt.Println()
+			}
+		}
+		ok = false
+	} else {
+		fmt.Println("✓ xcrun notarytool available")
+	}
+
+	if os.Getenv("MACOS_SIGN_IDENTITY") == "" {
+		fmt.Println("✗ MACOS_SIGN_IDENTITY not set — add an op:// reference to the repo's .env.template")
+		ok = false
+	} else {
+		fmt.Println("✓ MACOS_SIGN_IDENTITY set")
+	}
+
+	if _, err := exec.LookPath("xcrun"); err == nil {
+		if out, err := exec.Command("xcrun", "notarytool", "history", "--keychain-profile", "notarytool").CombinedOutput(); err != nil {
+			fmt.Println("✗ notarytool keychain profile 'notarytool' unavailable")
+			fmt.Println("  create it with: xcrun notarytool store-credentials \"notarytool\" --apple-id <email> --team-id <team> --password <app-specific-password>")
+			if len(out) > 0 {
+				fmt.Printf("  %s", out)
+				if !strings.HasSuffix(string(out), "\n") {
+					fmt.Println()
+				}
+			}
+			ok = false
+		} else {
+			fmt.Println("✓ notarytool keychain profile 'notarytool' works")
+		}
+	}
+
+	if !ok {
+		return errors.New("signing doctor reported errors above")
 	}
 	return nil
 }

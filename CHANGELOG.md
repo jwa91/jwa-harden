@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `jwa-harden doctor signing` checks macOS release prerequisites:
+  `codesign`, `xcrun notarytool`, `MACOS_SIGN_IDENTITY`, and the
+  `notarytool` keychain profile.
+
 ## [0.1.2] — 2026-05-13
 
 ### Fixed
