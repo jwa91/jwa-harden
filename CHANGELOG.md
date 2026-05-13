@@ -7,7 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
 
 ## [Unreleased]
 
-## [0.1.1] — 2026-05-13
+## [0.1.2] — 2026-05-13
+
+### Fixed
+
+- **Local release uses `gh auth token` for `GITHUB_TOKEN`** instead of the
+  scoped tap-writer PAT, which couldn't create releases on this repo
+  (only on `homebrew-tap`). v0.1.1's release attempt failed with HTTP
+  403 from the GitHub API. The tap-writer PAT remains in `.env.template`
+  as `HOMEBREW_TAP_GITHUB_TOKEN` for the Cask commit step; `GITHUB_TOKEN`
+  is now injected by the Makefile from your gh CLI keyring.
+
+## [0.1.1] — 2026-05-13 (never released)
 
 ### Fixed
 
@@ -50,6 +61,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
   deprecated `brews:` block per ADR 0008 in `jwa91/homebrew-tap`).
   Auto-commits `Casks/jwa-harden.rb` back into the tap on release.
 
-[Unreleased]: https://github.com/jwa91/jwa-harden/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/jwa91/jwa-harden/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/jwa91/jwa-harden/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/jwa91/jwa-harden/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jwa91/jwa-harden/releases/tag/v0.1.0
