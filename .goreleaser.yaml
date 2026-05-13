@@ -1,0 +1,76 @@
+version: 2
+
+project_name: jwa-harden
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: jwa-harden
+    main: ./cmd/jwa-harden
+    binary: jwa-harden
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X github.com/jwa91/jwa-harden/internal/version.Current={{ .Version }}
+      - -X github.com/jwa91/jwa-harden/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/jwa91/jwa-harden/internal/version.Date={{ .Date }}
+
+archives:
+  - id: default
+    ids: [jwa-harden]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+  groups:
+    - title: Features
+      regexp: "^.*feat(\\(.+\\))??!?:.+$"
+      order: 0
+    - title: Bug fixes
+      regexp: "^.*fix(\\(.+\\))??!?:.+$"
+      order: 1
+    - title: Other
+      order: 999
+
+release:
+  github:
+    owner: jwa91
+    name: jwa-harden
+  draft: false
+  prerelease: auto
+
+# Modern Homebrew distribution for pre-compiled binaries (ADR 0008 in
+# jwa91/homebrew-tap). Publishes Casks/jwa-harden.rb back to the tap.
+homebrew_casks:
+  - name: jwa-harden
+    ids: [default]
+    repository:
+      owner: jwa91
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Casks
+    homepage: "https://github.com/jwa91/jwa-harden"
+    description: "Wrap a command with op run against the nearest .env.template"
+    license: MIT
+    binaries: [jwa-harden]
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "feat(jwa-harden): cask update to {{ .Tag }}"
