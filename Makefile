@@ -17,18 +17,30 @@ check:
 	go vet ./...
 	go test ./...
 
-# Local release. Requires 1Password signed in. Tag v$(VERSION) must
-# already exist on HEAD; create with `git tag -a v$(VERSION) -m "..."`
-# and push it before running this target. CI handles the same flow
-# automatically for tag pushes.
+# Local release. CI is disabled (workflow_dispatch only) until signing
+# creds are in CI; until then every release runs locally. Requires
+# 1Password signed in, the v$(VERSION) tag at HEAD, and a keychain
+# profile named "notarytool" (xcrun notarytool store-credentials).
+#
+# Bootstrap note: this Makefile cannot wrap with `jwa-harden run`
+# because jwa-harden may be the thing we're releasing. Falls back to
+# `op run --env-file=.env.template --` directly.
 release:
-	@test -n "$(VERSION)" || (echo "usage: make release VERSION=0.1.0" && exit 2)
+	@test -n "$(VERSION)" || (echo "usage: make release VERSION=X.Y.Z" && exit 2)
 	@op whoami >/dev/null || (echo "1Password not signed in: eval \$$(op signin)" && exit 1)
+	@xcrun notarytool history --keychain-profile notarytool >/dev/null 2>&1 || \
+	  (echo "keychain profile 'notarytool' missing — see scripts/notarize-darwin.sh header"; exit 1)
 	@existing=$$(git rev-parse -q --verify "v$(VERSION)^{commit}" 2>/dev/null); \
 	head=$$(git rev-parse HEAD); \
 	test -n "$$existing" && test "$$existing" = "$$head" || \
 	  (echo "v$(VERSION) must exist and point at HEAD before release"; exit 3)
+	# Build + codesign + archive + publish + commit Cask back to the tap.
+	# Codesign happens inside goreleaser's builds.hooks.post.
 	op run --env-file=.env.template -- goreleaser release --clean
+	# Submit each codesigned darwin binary to notarytool. The published
+	# archive is byte-identical pre/post — Apple records the binary's
+	# CDHash so Gatekeeper online-check passes on first install.
+	scripts/notarize-darwin.sh jwa-harden $(VERSION)
 
 clean:
 	rm -rf bin dist

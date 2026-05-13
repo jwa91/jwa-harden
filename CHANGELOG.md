@@ -7,6 +7,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-13
+
+### Fixed
+
+- **macOS Gatekeeper now passes** on first run after
+  `brew install --cask jwa91/tap/jwa-harden`. v0.1.0's cask shipped
+  unsigned binaries which Tahoe Gatekeeper blocks with "Apple could not
+  verify jwa-harden is free of malware". This release codesigns each
+  darwin binary with Developer ID + hardened runtime + secure timestamp
+  (`scripts/codesign.sh` invoked as goreleaser `builds.hooks.post`) and
+  submits each codesigned binary to `xcrun notarytool`
+  (`scripts/notarize-darwin.sh` invoked by the Makefile release target).
+  The published archive is byte-identical pre/post notarization — Apple
+  records the binary's CDHash so the Gatekeeper online check passes at
+  install time.
+- **Linux smoke test asset name** corrected from `Linux` to `linux` so
+  next CI run won't fail on case-sensitivity (carried over from the
+  v0.1.0 release post-mortem fix).
+
+### Changed
+
+- **CI release workflow** is now `workflow_dispatch`-only until CI has
+  signing credentials. Local releases via `make release VERSION=X.Y.Z`
+  are canonical for now.
+- **`.env.template`** gains `MACOS_SIGN_IDENTITY` (resolves the
+  `make-dmg-identity` 1Password item shared with `trnscrb` and
+  `jwa-tobrew`).
+- **Makefile `release`** preflight now also checks for the
+  `notarytool` keychain profile.
+
 ## [0.1.0] — 2026-05-13
 
 ### Added
@@ -20,5 +50,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
   deprecated `brews:` block per ADR 0008 in `jwa91/homebrew-tap`).
   Auto-commits `Casks/jwa-harden.rb` back into the tap on release.
 
-[Unreleased]: https://github.com/jwa91/jwa-harden/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jwa91/jwa-harden/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/jwa91/jwa-harden/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jwa91/jwa-harden/releases/tag/v0.1.0
