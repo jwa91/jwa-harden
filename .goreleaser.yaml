@@ -16,9 +16,9 @@ builds:
     goarch: [amd64, arm64]
     ldflags:
       - -s -w
-      - -X github.com/jwa91/jwa-harden/internal/version.Current={{ .Version }}
-      - -X github.com/jwa91/jwa-harden/internal/version.Commit={{ .ShortCommit }}
-      - -X github.com/jwa91/jwa-harden/internal/version.Date={{ .Date }}
+      - -X github.com/jwa91/jwa-harden/internal/version.version={{ .Version }}
+      - -X github.com/jwa91/jwa-harden/internal/version.commit={{ .ShortCommit }}
+      - -X github.com/jwa91/jwa-harden/internal/version.date={{ .Date }}
     hooks:
       # Codesign darwin binaries with Developer ID + hardened runtime.
       # No-op on linux and when MACOS_SIGN_IDENTITY is unset (CI).

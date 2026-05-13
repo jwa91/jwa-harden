@@ -9,6 +9,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -19,59 +20,208 @@ import (
 )
 
 const envTemplateName = ".env.template"
+const usageExitCode = 2
+
+type command struct {
+	name    string
+	args    string
+	summary string
+	details []string
+	run     func([]string) error
+}
+
+func rootCommands() []command {
+	return []command{
+		{
+			name:    "run",
+			args:    "[--] <command> [args...]",
+			summary: "Resolve env via op and exec the command.",
+			details: []string{
+				"The `--` separator is optional but recommended; everything after it is passed verbatim to op.",
+				"Walks up from $PWD looking for .env.template, then execs:",
+				"  op run --env-file=<found> -- <command>",
+			},
+			run: cmdRun,
+		},
+		{
+			name:    "doctor",
+			args:    "[signing]",
+			summary: "Check op presence, signin, and template visibility.",
+			details: []string{
+				"Checks:",
+				"  signing  Check macOS signing and notarization prerequisites.",
+			},
+			run: cmdDoctor,
+		},
+		{
+			name:    "version",
+			summary: "Print build info.",
+			run:     cmdVersion,
+		},
+	}
+}
+
+type usageError struct {
+	message string
+}
+
+func (e usageError) Error() string {
+	return e.message
+}
+
+func (e usageError) ExitCode() int {
+	return usageExitCode
+}
+
+type commandExitError struct {
+	code int
+}
+
+func (e commandExitError) Error() string {
+	return ""
+}
+
+func (e commandExitError) ExitCode() int {
+	return e.code
+}
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	os.Exit(mainExit(os.Args[1:]))
+}
+
+func mainExit(args []string) int {
+	if err := run(args); err != nil {
+		if err.Error() == "" {
+			return exitCode(err)
+		}
 		fmt.Fprintln(os.Stderr, "jwa-harden:", err)
-		os.Exit(1)
+		return exitCode(err)
 	}
+	return 0
 }
 
 func run(args []string) error {
 	if len(args) == 0 {
-		printUsage(os.Stdout)
+		printRootUsage(os.Stdout)
 		return nil
 	}
-	switch args[0] {
-	case "run":
-		return cmdRun(args[1:])
-	case "doctor":
-		return cmdDoctor(args[1:])
-	case "version", "-v", "--version":
-		fmt.Println(version.String())
+
+	if isHelpArg(args[0]) {
+		printRootUsage(os.Stdout)
 		return nil
-	case "-h", "--help", "help":
-		printUsage(os.Stdout)
-		return nil
-	default:
-		printUsage(os.Stderr)
-		return fmt.Errorf("unknown command: %s", args[0])
 	}
+	if args[0] == "help" {
+		return cmdHelp(args[1:])
+	}
+	if args[0] == "-v" || args[0] == "--version" {
+		return cmdVersion(nil)
+	}
+	if strings.HasPrefix(args[0], "-") {
+		printRootUsage(os.Stderr)
+		return usageErrorf("unknown flag: %s", args[0])
+	}
+	cmd, ok := commandByName(args[0])
+	if !ok {
+		printRootUsage(os.Stderr)
+		return usageErrorf("unknown command: %s", args[0])
+	}
+	return cmd.run(args[1:])
 }
 
-func printUsage(w *os.File) {
+func cmdHelp(args []string) error {
+	if len(args) == 0 || len(args) == 1 && isHelpArg(args[0]) {
+		printRootUsage(os.Stdout)
+		return nil
+	}
+	if len(args) > 1 {
+		printRootUsage(os.Stderr)
+		return usageErrorf("usage: jwa-harden help [command]")
+	}
+	cmd, ok := commandByName(args[0])
+	if !ok {
+		printRootUsage(os.Stderr)
+		return usageErrorf("unknown command: %s", args[0])
+	}
+	printCommandUsage(os.Stdout, *cmd)
+	return nil
+}
+
+func commandByName(name string) (*command, bool) {
+	commands := rootCommands()
+	for i := range commands {
+		if commands[i].name == name {
+			return &commands[i], true
+		}
+	}
+	return nil, false
+}
+
+func mustCommand(name string) command {
+	cmd, ok := commandByName(name)
+	if !ok {
+		panic("missing command definition: " + name)
+	}
+	return *cmd
+}
+
+func isHelpArg(arg string) bool {
+	return arg == "-h" || arg == "--help"
+}
+
+func usageErrorf(format string, args ...any) error {
+	return usageError{message: fmt.Sprintf(format, args...)}
+}
+
+type exitCoder interface {
+	ExitCode() int
+}
+
+func exitCode(err error) int {
+	var withCode exitCoder
+	if errors.As(err, &withCode) {
+		return withCode.ExitCode()
+	}
+	return 1
+}
+
+func printRootUsage(w io.Writer) {
 	fmt.Fprintln(w, "jwa-harden — wrap a command with op run against the nearest .env.template")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  jwa-harden run -- <command> [args...]   Resolve env via op + exec the command")
-	fmt.Fprintln(w, "  jwa-harden doctor                       Check op presence, signin, and template visibility")
-	fmt.Fprintln(w, "  jwa-harden doctor signing               Check macOS signing and notarization prerequisites")
-	fmt.Fprintln(w, "  jwa-harden version                      Print build info")
+	fmt.Fprintln(w, "Usage: jwa-harden <command> [args]")
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Behaviour:")
-	fmt.Fprintln(w, "  Walks up from $PWD looking for .env.template, then execs:")
-	fmt.Fprintln(w, "    op run --env-file=<found> -- <command>")
-	fmt.Fprintln(w, "  The `--` separator is optional but recommended; everything after it is")
-	fmt.Fprintln(w, "  passed verbatim to op.")
+	fmt.Fprintln(w, "Commands:")
+	for _, cmd := range rootCommands() {
+		fmt.Fprintf(w, "  %-8s %s\n", cmd.name, cmd.summary)
+	}
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Run `jwa-harden help <command>` for command details.")
+}
+
+func printCommandUsage(w io.Writer, cmd command) {
+	fmt.Fprintf(w, "Usage: jwa-harden %s", cmd.name)
+	if cmd.args != "" {
+		fmt.Fprintf(w, " %s", cmd.args)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, cmd.summary)
+	for _, detail := range cmd.details {
+		fmt.Fprintln(w, detail)
+	}
 }
 
 func cmdRun(args []string) error {
+	if len(args) == 1 && isHelpArg(args[0]) {
+		printCommandUsage(os.Stdout, mustCommand("run"))
+		return nil
+	}
 	// Allow `jwa-harden run -- cmd args` and `jwa-harden run cmd args`.
 	if len(args) > 0 && args[0] == "--" {
 		args = args[1:]
 	}
 	if len(args) == 0 {
-		return errors.New("nothing to run; pass a command after `run`")
+		printCommandUsage(os.Stderr, mustCommand("run"))
+		return usageErrorf("nothing to run; pass a command after `run`")
 	}
 	if _, err := exec.LookPath("op"); err != nil {
 		return errors.New("`op` (1Password CLI) is not on PATH — install via Homebrew: brew install --cask 1password-cli")
@@ -89,7 +239,7 @@ func cmdRun(args []string) error {
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			os.Exit(exitErr.ExitCode())
+			return commandExitError{code: exitErr.ExitCode()}
 		}
 		return fmt.Errorf("exec op: %w", err)
 	}
@@ -97,15 +247,28 @@ func cmdRun(args []string) error {
 }
 
 func cmdDoctor(args []string) error {
+	if len(args) == 1 && isHelpArg(args[0]) {
+		printCommandUsage(os.Stdout, mustCommand("doctor"))
+		return nil
+	}
 	if len(args) > 0 {
 		switch args[0] {
 		case "signing":
+			if len(args) == 2 && isHelpArg(args[1]) {
+				printDoctorSigningUsage(os.Stdout)
+				return nil
+			}
+			if len(args) > 1 {
+				printDoctorSigningUsage(os.Stderr)
+				return usageErrorf("unknown doctor signing argument: %s", args[1])
+			}
 			return cmdDoctorSigning()
-		case "-h", "--help", "help":
-			fmt.Println("Usage: jwa-harden doctor [signing]")
-			return nil
 		default:
-			return fmt.Errorf("unknown doctor check: %s", args[0])
+			printCommandUsage(os.Stderr, mustCommand("doctor"))
+			if strings.HasPrefix(args[0], "-") {
+				return usageErrorf("unknown doctor flag: %s", args[0])
+			}
+			return usageErrorf("unknown doctor check: %s", args[0])
 		}
 	}
 
@@ -140,6 +303,25 @@ func cmdDoctor(args []string) error {
 		return errors.New("doctor reported errors above")
 	}
 	return nil
+}
+
+func cmdVersion(args []string) error {
+	if len(args) == 1 && isHelpArg(args[0]) {
+		printCommandUsage(os.Stdout, mustCommand("version"))
+		return nil
+	}
+	if len(args) > 0 {
+		printCommandUsage(os.Stderr, mustCommand("version"))
+		return usageErrorf("version takes no arguments")
+	}
+	fmt.Println(version.String())
+	return nil
+}
+
+func printDoctorSigningUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage: jwa-harden doctor signing")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Check macOS signing and notarization prerequisites.")
 }
 
 func cmdDoctorSigning() error {

@@ -7,19 +7,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
 
 ## [Unreleased]
 
+### Added
+
+- Added a dedicated CI workflow (`make check`) and a release `verify` job
+  gate so publish runs only after checks pass.
+
+## [0.1.4] — 2026-05-13
+
 ### Fixed
 
 - Enforced notarization inside the GoReleaser build hook so releases cut via
   raw `goreleaser release --clean` are notarized (not only releases run via
   `make release`).
 
+## [0.1.3] — 2026-05-13
+
 ### Added
 
 - `jwa-harden doctor signing` checks macOS release prerequisites:
   `codesign`, `xcrun notarytool`, `MACOS_SIGN_IDENTITY`, and the
   `notarytool` keychain profile.
-- Added a dedicated CI workflow (`make check`) and a release `verify` job
-  gate so publish runs only after checks pass.
 
 ## [0.1.2] — 2026-05-13
 
@@ -75,7 +82,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
   deprecated `brews:` block per ADR 0008 in `jwa91/homebrew-tap`).
   Auto-commits `Casks/jwa-harden.rb` back into the tap on release.
 
-[Unreleased]: https://github.com/jwa91/jwa-harden/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/jwa91/jwa-harden/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/jwa91/jwa-harden/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/jwa91/jwa-harden/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/jwa91/jwa-harden/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/jwa91/jwa-harden/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jwa91/jwa-harden/releases/tag/v0.1.0

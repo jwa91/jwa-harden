@@ -1,4 +1,4 @@
-.PHONY: build install dev release check clean
+.PHONY: build install dev release golint check clean
 
 BIN_DIR ?= $(HOME)/.local/bin
 
@@ -13,8 +13,12 @@ install: build
 
 dev: install
 
+golint:
+	golangci-lint run ./...
+
 check:
 	go vet ./...
+	$(MAKE) golint
 	go test ./...
 
 # Local release. CI is disabled (workflow_dispatch only) until signing
