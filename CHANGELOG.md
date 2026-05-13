@@ -18,6 +18,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com); versions follow
 - `jwa-harden doctor signing` checks macOS release prerequisites:
   `codesign`, `xcrun notarytool`, `MACOS_SIGN_IDENTITY`, and the
   `notarytool` keychain profile.
+- Added a dedicated CI workflow (`make check`) and a release `verify` job
+  gate so publish runs only after checks pass.
 
 ## [0.1.2] — 2026-05-13
 
