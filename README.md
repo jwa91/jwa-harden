@@ -6,8 +6,11 @@ Part of the `jwa-*` family of personal CLIs published via
 [`jwa91/homebrew-tap`](https://github.com/jwa91/homebrew-tap).
 
 ```bash
-brew install jwa91/tap/jwa-harden
+brew install --cask jwa91/tap/jwa-harden
 ```
+
+See [Installation](docs/installation.md) for Homebrew, direct download,
+`go install`, and source-build options.
 
 ## What it does
 
@@ -35,6 +38,11 @@ jwa-harden doctor signing
 # Print version
 jwa-harden version
 ```
+
+Command contract: no arguments, `help`, `-h`, and `--help` print usage with
+exit `0`; unknown commands exit non-zero with diagnostics on stderr. Doctor
+commands use status markers so humans and agents can quickly distinguish pass,
+warning, and failure lines.
 
 ## Why this exists
 

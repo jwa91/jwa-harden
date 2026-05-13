@@ -4,11 +4,11 @@ package version
 import "fmt"
 
 var (
-	Current = "dev"
-	Commit  = "none"
-	Date    = "unknown"
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 func String() string {
-	return fmt.Sprintf("jwa-harden %s (commit %s, built %s)", Current, Commit, Date)
+	return fmt.Sprintf("jwa-harden %s (commit %s, built %s)", version, commit, date)
 }
